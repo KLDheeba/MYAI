@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Host</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script src='https://8x8.vc/vpaas-magic-cookie-d8b4d69435b14579ac1d2d3fbd1fa393/external_api.min.js'></script>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            margin: 20px;
+            background-color:#e7f7fd;
+            color: #333;
+        }
+        
+        h1 {
+            color: #333;
+        }
+        
+        p {
+            color: #555;
+        }
+        input[type="submit"] {
+            background-color: #cc8899;
+            color: #010203;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        input[type="submit"]:hover {
+            background-color: #ae98aa;
+        }
+
+        #container {
+            display: flex;
+            height: 100%;
+            flex-direction: row-reverse;
+        }
+
+        #jitsi-container, #emo {
+            height: 100%;
+        }
+
+        #jitsi-container {
+            flex: 4; /* 80% of the width */
+        }
+
+        #emo{
+            flex: 1; /* 20% of the width */
+            position: relative;
+            z-index: 2; 
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start; /* Align content to the left */
+            padding-left: 20px; }
+    </style>
+    <script>
+        window.onload = () => {
+            var api = new JitsiMeetExternalAPI("8x8.vc", {
+                roomName :"vpaas-magic-cookie-d8b4d69435b14579ac1d2d3fbd1fa393/{{meeting_code}}",
+                parentNode: document.querySelector('#jitsi-container'),
+            });
+        }
+    </script>
+</head>
+<body>
+    <h1>Meeting Host Page</h1>
+    <p>Meeting Code: {{ meeting_code }}</p>
+    <p>Host Email: {{ host_email }}</p>
+    <div id="container">
+        <div id="jitsi-container"></div>
+        <div id="participants-container">
+            <h2>Participants</h2>
+            <ul id="participantsList"></ul>
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script>
+        // Function to update participants and their listening statuses
+        function updateParticipantsAndListeningStatuses(data) {
+            var participantsList = $('#participantsList');
+            participantsList.empty(); // Clear the existing list
+            
+            // Iterate over participants and update the list
+            data.participants.forEach(function(participant) {
+                var listeningStatus = data.listening_status_dict[participant.name].status || ' ';
+                console.log('Participant:', participant.name, 'Listening Status:', listeningStatus);
+                participantsList.append('<li>' + participant.name + ': <span class="listeningStatus">' + listeningStatus + '</span></li>');
+            });
+
+        }
+
+        // Function to fetch participants from the server
+        function getParticipants(meeting_code) {
+            $.ajax({
+                url: "/get_participants/" + meeting_code,
+                type: "GET",
+                dataType: "json",
+                success: function(data) {
+                    // Update the participants list and their listening statuses
+                    updateParticipantsAndListeningStatuses(data);
+                },
+                error: function(error) {
+                    console.error('Error fetching participants:', error);
+                }
+            });
+        }
+
+        $(document).ready(function() {
+            // Fetch and update participants list on page load
+            var meetingCode = "{{ meeting_code }}";
+            getParticipants(meetingCode);
+            setInterval(function() {
+                getParticipants(meetingCode);
+            }, 1000);
+        });
+
+        // Set up socket connection and listen for new participants
+        var socket = io.connect('http://' + document.domain + ':' + location.port);
+        socket.on('new_participant', function(data) {
+            // Update participants list and listening statuses when a new participant joins
+            updateParticipantsAndListeningStatuses(data);
+        });
+
+        // Function to handle the "End Meeting" button click
+        $('form').submit(function(e) {
+            e.preventDefault(); // Prevent form submission
+            var form = $(this);
+            var url = form.attr('action');
+
+            // Perform AJAX POST request to end the meeting
+            $.ajax({
+                type: "POST",
+                url: url,
+                success: function(response) {
+                    console.log('Meeting ended successfully');
+                },
+                error: function(error) {
+                    console.error('Error ending meeting:', error);
+                }
+            });
+        });
+    </script>
+
+    <form action="{{ url_for('end_meeting', meeting_code=meeting_code) }}" method="post">
+        <input type="submit" value="End Meeting">
+    </form>
+</body>
+</html>
+

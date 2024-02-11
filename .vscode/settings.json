@@ -1,0 +1,6 @@
+{
+    "editor.suggest.snippetsPreventQuickSuggestions": false,
+    "wolf.disableHotModeWarning": true,
+    "python.analysis.typeCheckingMode": "off",
+    "python.analysis.autoImportCompletions": true,
+}

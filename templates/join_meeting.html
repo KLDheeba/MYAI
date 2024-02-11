@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join Meeting</title>
+    <style>
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            margin: 20px;
+            background-color:#e7f7fd;
+            color: #333;
+        }
+        
+        h1 {
+            color: #333;
+        }
+        button {
+            padding: 10px;
+            background-color: #cc8899;
+            color: #010203;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        button:hover {
+            background-color:#ae98aa; 
+        }
+    </style>
+</head>
+<body>
+    <h1>Join Meeting</h1>
+    <form method="post">
+        <label for="name">Name:</label>
+        <input type="text" name="name" required>
+        <br>
+        <label for="meeting_code">Meeting Code:</label>
+        <input type="text" name="meeting_code" required>
+        <br>
+        <button type="submit">Verify</button>
+    </form>
+</body>
+</html>
+
+
+
+
+
+
+
+
+

@@ -23,7 +23,6 @@ google-pasta==0.2.0
 greenlet==3.0.3
 grpcio==1.60.0
 gunicorn==21.2.0
-python==3.9.18
 h11==0.14.0
 h5py==3.10.0
 httplib2==0.22.0

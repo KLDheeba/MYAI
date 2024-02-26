@@ -9,40 +9,40 @@ import time
 import cv2
 import numpy as np
 import tensorflow as tf
-from tensorflow import keras
 import random
 import secrets
 import pytz
 import jwt
 import uuid
+import os
+from flask import Flask
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
-app = Flask(__name__)
-app.secret_key = secrets.token_hex(16)
-socketio = SocketIO(app)
+application = Flask(__name__)
+application.secret_key = secrets.token_hex(16)
+socketio = SocketIO(application)
 scheduler = BackgroundScheduler()
 scheduler.start()
-
 
 participant_listening_status = {}
 participant_sockets = {}
 stop_events = {}
 participants_data={}
 
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USE_SSL'] = False
-app.config['MAIL_USERNAME'] = 'alixgizel@gmail.com'
-app.config['MAIL_PASSWORD'] = 'bnhw drxr kdsr sjdg'
-app.config['MAIL_DEFAULT_SENDER'] = 'alixgizel@gmail.com'
-mail = Mail(app)
+application.config['MAIL_SERVER'] = 'smtp.gmail.com'
+application.config['MAIL_PORT'] = 587
+application.config['MAIL_USE_TLS'] = True
+application.config['MAIL_USE_SSL'] = False
+application.config['MAIL_USERNAME'] = 'alixgizel@gmail.com'
+application.config['MAIL_PASSWORD'] = 'bnhw drxr kdsr sjdg'
+application.config['MAIL_DEFAULT_SENDER'] = 'alixgizel@gmail.com'
+mail = Mail(application)
 
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root2:password@localhost/meeting_app'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
+application.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root2:password@localhost/meeting_app'
+application.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(application)
 
 class Meeting(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -65,10 +65,10 @@ class Emotion(db.Model):
     emotions_data = db.Column(db.JSON)  
 
 
-with app.app_context():
+with application.app_context():
     db.create_all()
-    
-with open('C:/Users/USER/Documents/My AI/My AI/Key 1_12_2024, 1_06_04 AM.pk', 'rb') as key_file:
+key_file_path = os.path.join(os.path.dirname(__file__), 'Key 1_12_2024, 1_06_04 AM.pk')  
+with open(key_file_path, 'rb') as key_file:
     PRIVATE_KEY = key_file.read()
 private_key=serialization.load_pem_private_key(
     PRIVATE_KEY, 
@@ -110,17 +110,19 @@ def generate_jwt():
 def generate_code():
     return str(random.randint(000000, 999999))
 
-
 def send_email(recipient, subject, body):
     message = Message(subject, recipients=[recipient], body=body)
     mail.send(message)
+
+MODEL_PATH = os.path.join('flask', 'model.h5')
+CASCADE_PATH = os.path.join('flask', 'haarcascade_frontalface_default.xml')
     
 def detect_listening_status_and_emit(name, meeting_code):
     global stop_events
     try:
-        model = tf.keras.models.load_model('C:/Users/USER/Documents/My AI/My AI/flask/model.h5')
+        model = tf.keras.models.load_model(MODEL_PATH)
 
-        face_cascade = cv2.CascadeClassifier('C:/Users/USER/Documents/My AI/My AI/flask/haarcascade_frontalface_default.xml')
+        face_cascade = cv2.CascadeClassifier(CASCADE_PATH)
         cap = cv2.VideoCapture(0)
 
         last_time = time.time()
@@ -196,29 +198,29 @@ def send_participant_message(name, meeting_code, status):
         namespace='/meeting'
     )
     
-@app.after_request
+@application.after_request
 def set_response_headers(response):
     response.headers['Content-Type'] = 'text/html; charset=utf-8'
     response.headers['Cache-Control'] = 'max-age=31536000, immutable'
     response.headers['X-Content-Type-Options'] = 'nosniff'
     return response
 
-@app.route('/')
+@application.route('/')
 def home():
     return render_template('home.html')
-@app.route('/redirect', methods=['POST'])
+@application.route('/redirect', methods=['POST'])
 def redirect_page():
     option = request.form['option']
     if option == 'meeting':
         return redirect(url_for('meeting'))
-@app.route('/meeting', methods=['GET','POST'])
+@application.route('/meeting', methods=['GET','POST'])
 def meeting():
     if request.method =='GET':
         return render_template('meeting.html')
     elif request.method =='POST':
         return render_template('meeting.html')
 
-@app.route('/meeting_options', methods=['POST'])
+@application.route('/meeting_options', methods=['POST'])
 def meeting_options():
     option = request.form['option']
     if option == 'create':
@@ -226,7 +228,7 @@ def meeting_options():
     elif option == 'join':
         return redirect(url_for('join_meeting'))  # Redirect to the join_meeting route
 
-@app.route('/create_meeting', methods=['POST'])
+@application.route('/create_meeting', methods=['POST'])
 def create_meeting():
     email = request.form['email']
     code = generate_code()
@@ -245,7 +247,7 @@ def create_meeting():
     # Render the create_meeting_host.html template with the meeting code
     return render_template('create_meeting_host.html', code=code)
 
-@app.route('/join_meeting_host/<meeting_code>', methods=['GET', 'POST'])
+@application.route('/join_meeting_host/<meeting_code>', methods=['GET', 'POST'])
 def join_meeting_host(meeting_code):
     if meeting := Meeting.query.filter_by(code=meeting_code).first():
         host_email = meeting.host_email
@@ -259,7 +261,7 @@ def join_meeting_host(meeting_code):
         return render_template('meeting_host.html', meeting_code=meeting_code, host_email=host_email, participants=participants, listening_status_dict=listening_status_dict)
     else:
         return 'Invalid meeting code'
-@app.route('/join_meeting', methods=['GET', 'POST'])
+@application.route('/join_meeting', methods=['GET', 'POST'])
 def join_meeting():
  try:
     if request.method == 'POST':
@@ -290,11 +292,11 @@ def join_meeting():
  except Exception as e:
     print(f"Error in join_meeting: {str(e)}")
 
-@app.route('/meeting_joined/<meeting_code>/<host_email>/<name>/<status>')
+@application.route('/meeting_joined/<meeting_code>/<host_email>/<name>/<status>')
 def meeting_joined(meeting_code, host_email, name, status):
     participant = Participant.query.filter_by(name=name, meeting_code=meeting_code).first()
     return render_template('meeting_joined.html', meeting_code=meeting_code, host_email=host_email, name=name, status=status)
-@app.route('/get_participants/<meeting_code>', methods=['GET'])
+@application.route('/get_participants/<meeting_code>', methods=['GET'])
 def get_participants(meeting_code):
     try:
         # Query the Participant table to get the list of participants for the meeting
@@ -331,7 +333,7 @@ def get_participants(meeting_code):
         # Log the exception, and return an appropriate error response
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/get_listening_status/<name>')
+@application.route('/get_listening_status/<name>')
 def get_listening_status(name):
  try:
     if meeting_code := session.get('meeting_code'):
@@ -408,7 +410,7 @@ def send_summary_email(meeting_code, host_email):
 
     send_email(host_email, subject, body)
 
-@app.route('/end_meeting/<meeting_code>', methods=['POST'])
+@application.route('/end_meeting/<meeting_code>', methods=['POST'])
 def end_meeting(meeting_code):
     meeting = Meeting.query.filter_by(code=meeting_code).first()
     if not meeting:
@@ -422,7 +424,7 @@ def end_meeting(meeting_code):
     return render_template('meeting_ended.html', meeting_code=meeting_code)
 
 
-@app.route('/leave_meeting/<participant_name>/<meeting_code>', methods=['GET', 'POST'])
+@application.route('/leave_meeting/<participant_name>/<meeting_code>', methods=['GET', 'POST'])
 def leave_meeting(participant_name, meeting_code):
     if request.method == 'POST':
             participant = Participant.query.filter_by(name=participant_name, meeting_code=meeting_code).first()
@@ -436,7 +438,7 @@ def leave_meeting(participant_name, meeting_code):
                 flash('Participant not found')
     return render_template('leave_meeting.html')
 
-@app.after_request
+@application.after_request
 def set_response_headers(response):
     response.headers['Content-Type'] = 'text/html; charset=utf-8'
     response.headers['Cache-Control'] = 'max-age=31536000, immutable'
@@ -444,5 +446,5 @@ def set_response_headers(response):
     return response
 
 if __name__ == '__main__':
-    app.secret_key = secrets.token_hex(16)
-    socketio.run(app, debug=True)
+    application.secret_key = secrets.token_hex(16)
+    socketio.run(application)
